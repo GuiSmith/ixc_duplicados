@@ -15,15 +15,17 @@ if(!$db) {
     exit;
 }
 
-// $db->tipo = 'mostra';
-
-$table = 'information_schema.columns';
-$columns = ['TABLE_NAME', 'COLUMN_NAME'];
-$where = [];
-$where[] = ['TB' => 'column_name', 'OP' => 'IN', 'P' => 'cidade,id_cidade'];
-$group = '';
-$order = '';
-$limit = '';
+$sql =
+"SELECT
+	table_name, 
+	column_name
+FROM information_schema.columns
+WHERE table_schema = 'ixcprovedor'
+	AND data_type = 'int'
+	AND (column_name IN ('cidade', 'id_cidade')
+		OR column_name LIKE 'cidade\_%'
+		OR column_name LIKE '%\_cidade'
+		OR column_name LIKE '%\_cidade\_%');";
 
 // ID das cidades a serem procuradas
 $cidade_antiga = '4376';
@@ -34,8 +36,11 @@ if($cidade_antiga == '' || $cidade_nova == '') {
     exit;
 }
 
+echo "Cidade antiga: $cidade_antiga\n";
+echo "Cidade nova: $cidade_nova\n\n";
+
 try {
-    $result = $db->select($table, implode(',',$columns), $where, $group, $order, $limit);
+    $result = $db->query($sql);
 
     if (!$result) {
         echo "Erro ao consultar colunas de cidade: " . $db->getError()."\n";
@@ -43,25 +48,27 @@ try {
     }
 
     $colunas = [];
+    $bkp_file_content = '';
+    $ajuste_file_content = '';
+    $total_registros = 0;
     foreach ($result as $row) {
-        $colunas[$row['TABLE_NAME']] = $row['COLUMN_NAME'];
-    }
+        $registros = $db->select($row['TABLE_NAME'], 'id,'.$row['COLUMN_NAME'], [['TB' => $row['COLUMN_NAME'], 'OP' => '=', 'P' => $cidade_antiga]], '', '', '');
+        if($registros->num_rows > 0){
+            echo "Registros encontrados na tabela {$row['TABLE_NAME']}: ";
+            echo print_r($registros->num_rows, true);
+            echo "\n";
 
-    // foreach ($colunas as $tabela => $coluna) {
-    //     echo "Tabela: $tabela, Coluna: $coluna\n";
-    // }
-    // echo "Colunas encontradas:\n";
-
-    echo "Procurando colunas...\n";
-    foreach ($colunas as $tabela => $coluna) {
-        $onde = [];
-        $onde[] = ['TB' => $coluna, 'OP' => '=', 'P' => $cidade_antiga];
-        $response = $db->select($tabela, "id, $coluna", $onde, '', '', '');
-        if($response->num_rows > 0){
-            echo "Tabela: $tabela, Coluna: $coluna\n";
-            echo $response->num_rows . " registros encontrados.\n";
+            $bkp_file_content .= "-- Tabela: {$row['TABLE_NAME']}\n";
+            $ajuste_file_content .= "-- Tabela: {$row['TABLE_NAME']}\n";
+            foreach ($registros as $registro) {
+                $bkp_file_content .= "UPDATE {$row['TABLE_NAME']} SET {$row['COLUMN_NAME']} = {$registro[$row['COLUMN_NAME']]} WHERE id = {$registro['id']};\n";
+                $ajuste_file_content .= "UPDATE {$row['TABLE_NAME']} SET {$row['COLUMN_NAME']} = {$cidade_nova} WHERE id = {$registro['id']};\n";
+            }
+            echo "\n";
         }
     }
+    echo "\n\nBKP:\n$bkp_file_content";
+    echo "\n\nBKP:\n$ajuste_file_content";
 } catch (Exception $th) {
     echo "Erro ao realizar consulta: " . $th->getMessage()."\n";
     echo "\n";

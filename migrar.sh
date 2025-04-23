@@ -3,10 +3,10 @@
 # Variaveis
 NOME_ARQUIVO="cidade.php"
 SSH_USER="root"
-DESTINO_IP="192.168.29.141"
+DESTINO_IP="192.168.29.132"
 DESTINO_PORTA="22"
 DESTINO_PASTA="/var/www"
-SENHA_SSH="ixcoPfriwtbicP1"
+SENHA_SSH="Senha123@"
 
 # Perguntando o IP de destino
 echo "Iniciando transferencia de arquivos via SCP para $SSH_USER@$DESTINO_IP:$DESTINO_PASTA"
